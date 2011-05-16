@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
+#include <sys/stat.h>
 
 #define STREQ(s1, s2) (!strcmp(s1, s2))
 
@@ -110,87 +111,93 @@ void handle_client(server_t* server, int sockfd) {
 void send_client(int sockfd, int resp_num, char* resp_msg, char* type, int len, char* cont) {
   char msg[BUF_SIZE];
 
-  char resp_num_buf[10];
-  snprintf(resp_num_buf, 5, "%d ", resp_num);
-
-  char len_buf[15];
-  snprintf(len_buf, 14, "%d\n\n", len);
-
-  strcpy(msg, "HTTP/1.1 ");
-  strcat(msg, resp_num_buf);
-  strcat(msg, resp_msg);
-  strcat(msg, "\n" SERVER_FIELD);
-  strcat(msg, "Connection: close\n");
-  strcat(msg, "Content-type: ");
-  strcat(msg, type);
-  strcat(msg, "\nContent-length: ");
-  strcat(msg, len_buf);
-  strcat(msg, "\n");
+  snprintf(msg, BUF_SIZE, 
+           "HTTP/1.1 %d %s\n"                   \
+           "Connection: close\n"                \
+           "Content-type: %s\n"                 \
+           "Content-length: %d\n"               \
+           "%s\n\n",
+           resp_num, resp_msg,
+           type,
+           len,
+           SERVER_FIELD);
 
   send(sockfd, msg, strlen(msg) - 1, 0);
   send(sockfd, cont, len, 0);
 }
 
-void handle_request(server_t* serv, int sockfd, char* req) {
-  printf("Client requested \"%s\"\n", req);
-  /* return a directory listing */
-  if(STREQ(req, "/")) {
-    string_t* dir_list = string_new2("");
-
-    DIR *dp;
-    struct dirent *ep;     
-    dp = opendir (serv->directory);
-    
-    if(dp != NULL) {
-      while((ep = readdir(dp))) {
-        if(STREQ(ep->d_name, "..") || STREQ(ep->d_name, ".")) {
-          continue;
-        }
-
-        char html[BUF_SIZE];
-
-        strcpy(html, "\t\t<a href=/");
-        strcat(html, ep->d_name);
-        strcat(html, ">");
-        strcat(html, ep->d_name);
-        strcat(html, "</a>\n\t\t<br />\n");
-        
-        dir_list = string_append_str(dir_list, html);
+static void list_directory(server_t* serv, int sockfd, char* dir) {
+  string_t* dir_list = string_new2("");
+  
+  DIR *dp;
+  struct dirent *ep;     
+  dp = opendir(dir);
+  
+  if(dp != NULL) {
+    while((ep = readdir(dp))) {
+      if(STREQ(ep->d_name, "..") || STREQ(ep->d_name, ".")) {
+        continue;
       }
-      closedir (dp);
+      
+      char html[BUF_SIZE];
+      
+      snprintf(html, BUF_SIZE,
+               "\t\t<a href=/%s/%s>%s</a>\n\t\t<br />\n",
+               dir,
+               ep->d_name,
+               ep->d_name);
+      
+      dir_list = string_append_str(dir_list, html);
     }
-    else
-      perror ("Couldn't open the directory");
+    closedir (dp);
+  }
+  else
+    perror ("Couldn't open the directory");
+  
+  string_t* html = htmlize(DOCTYPE_HTML5,
+                           HEAD(
+                                html_tag("title",
+                                         ATTRIBUTES(NULL),
+                                         CONTENT("tinyserv listing"),
+                                         0)),
+                           BODY(dir_list));
+  send_client(sockfd, 200, "OK", "text/html", html->size, html->str);
+  
+  string_del(html);
+}
 
-    string_t* html = htmlize(DOCTYPE_HTML5,
-                             HEAD(
-                                  html_tag("title",
-                                           ATTRIBUTES(NULL),
-                                           CONTENT("tinyserv listing"),
-                                           0)),
-                             BODY(dir_list));
-    send_client(sockfd, 200, "OK", "text/html", html->size, html->str);
-
-    string_del(html);
+void handle_request(server_t* serv, int sockfd, char* dir) {
+  printf("Client requested \"%s\"\n", dir);
+  if(STREQ(dir, "/")) {
+    list_directory(serv, sockfd, serv->directory);
   } else {
-    req += 1;
-    if(strstr(req, "..") == req || req[0] == '\0') {
+
+    /* skip over '/' */
+    dir += 1;
+
+    if(strstr(dir, "..") == dir || dir[0] == '\0') {
       bad_request(sockfd);
       return;
     }
 
-    char* file = req;
-    FILE* fp = fopen(file, "rb");
-    
-    if(fp == NULL) {
+    struct stat buffer;
+    int status = stat(dir, &buffer);
+
+    /* not found */
+    if(status < 0) {
       string_t* str = string_new2("Not found: ");
-      str = string_append_str(str, file);
+      str = string_append_str(str, dir);
       
       char* s = str->str;
-      send_client(sockfd, 404, "Not Found", "text/plain", str->size, s);
-
+      send_client(sockfd, 404, "Not Found", "text/html", str->size, s);
+      
       string_del(str);
+    } else if(S_ISDIR(buffer.st_mode)) {
+      list_directory(serv, sockfd, dir);
     } else {
+      char* file = dir;
+      FILE* fp = fopen(file, "rb");
+    
       fseek(fp, 0, SEEK_END);
       unsigned size = ftell(fp) + 1;
       rewind(fp);
