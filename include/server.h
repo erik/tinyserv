@@ -32,8 +32,9 @@ void deinit_server(server_t* serv);
 
 int run_server(server_t* serv);
 
-void handle_client(server_t* serv, int sockfd);
+void handle_request(server_t* serv, int sockfd, char* req);
 
+void handle_client(server_t* serv, int sockfd);
 void send_client(int sockfd, int resp_num, char* resp_msg, char* type, int len, char* cont);
 
 #endif /* _SERVER_H_ */

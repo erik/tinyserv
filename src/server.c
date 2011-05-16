@@ -1,8 +1,12 @@
 #include "server.h"
 
+#include "htmlize/htmlize.h"
+#include "htmlize/str.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
 
 #define STREQ(s1, s2) (!strcmp(s1, s2))
 
@@ -75,7 +79,6 @@ void handle_client(server_t* server, int sockfd) {
 
     char* ptr = strtok(buffer, "\r\n");
     while (ptr != NULL) {
-      printf ("%s\n", ptr);
 
       /* only pieces of the header we're concerned with */
       if(LINE_IS("GET ")) {
@@ -91,24 +94,21 @@ void handle_client(server_t* server, int sockfd) {
     }    
 
     if(host == NULL || get == NULL) {
-      puts("bad req\n");
+      puts("Bad request");
       bad_request(sockfd);
     } else {
-      puts("good req\n");
-      send_client(sockfd, 200, "OK", "text/html", 5, "BALLS");        
+      handle_request(server, sockfd, get);
     }
   }
 
   close(sockfd);
-  printf("closed\n");
   
   /* exit child process */
   exit(0);
 }
 
 void send_client(int sockfd, int resp_num, char* resp_msg, char* type, int len, char* cont) {
-  unsigned size = len + strlen(resp_msg) + 100;
-  char* msg = calloc(size, 0);
+  char msg[BUF_SIZE];
 
   char resp_num_buf[10];
   snprintf(resp_num_buf, 5, "%d ", resp_num);
@@ -126,7 +126,82 @@ void send_client(int sockfd, int resp_num, char* resp_msg, char* type, int len, 
   strcat(msg, "\nContent-length: ");
   strcat(msg, len_buf);
   strcat(msg, "\n");
-  memcpy(msg + strlen(msg) - 1, cont, len);
 
-  send(sockfd, msg, strlen(msg), 0);
+  send(sockfd, msg, strlen(msg) - 1, 0);
+  send(sockfd, cont, len, 0);
+}
+
+void handle_request(server_t* serv, int sockfd, char* req) {
+  printf("Client requested \"%s\"\n", req);
+  /* return a directory listing */
+  if(STREQ(req, "/")) {
+    string_t* dir_list = string_new2("");
+
+    DIR *dp;
+    struct dirent *ep;     
+    dp = opendir (serv->directory);
+    
+    if(dp != NULL) {
+      while((ep = readdir(dp))) {
+        if(STREQ(ep->d_name, "..") || STREQ(ep->d_name, ".")) {
+          continue;
+        }
+
+        char html[BUF_SIZE];
+
+        strcpy(html, "\t\t<a href=/");
+        strcat(html, ep->d_name);
+        strcat(html, ">");
+        strcat(html, ep->d_name);
+        strcat(html, "</a>\n\t\t<br />\n");
+        
+        dir_list = string_append_str(dir_list, html);
+      }
+      closedir (dp);
+    }
+    else
+      perror ("Couldn't open the directory");
+
+    string_t* html = htmlize(DOCTYPE_HTML5,
+                             HEAD(
+                                  html_tag("title",
+                                           ATTRIBUTES(NULL),
+                                           CONTENT("tinyserv listing"),
+                                           0)),
+                             BODY(dir_list));
+    send_client(sockfd, 200, "OK", "text/html", html->size, html->str);
+
+    string_del(html);
+  } else {
+    req += 1;
+    if(strstr(req, "..") == req || req[0] == '\0') {
+      bad_request(sockfd);
+      return;
+    }
+
+    char* file = req;
+    FILE* fp = fopen(file, "rb");
+    
+    if(fp == NULL) {
+      string_t* str = string_new2("Not found: ");
+      str = string_append_str(str, file);
+      
+      char* s = str->str;
+      send_client(sockfd, 404, "Not Found", "text/plain", str->size, s);
+
+      string_del(str);
+    } else {
+      fseek(fp, 0, SEEK_END);
+      unsigned size = ftell(fp) + 1;
+      rewind(fp);
+
+      char* content = calloc(size, sizeof(char));
+      fread(content, sizeof(char), size, fp);
+
+      /* size - 1 because we don't want to send the trailing '\0' */ 
+      send_client(sockfd, 200, "OK", "text/plain; charset=UTF-8", size - 1, content);
+
+      free(content);
+    }
+  }
 }
