@@ -46,4 +46,7 @@ void send_client(int sockfd, int resp_num, char* resp_msg, char* type, int len, 
 
 char* get_mime_type(char* filename);
 
+char* encode_url(char* dec, char* buf, int len);
+char* decode_url(char* enc, char* buf, int len);
+
 #endif /* _SERVER_H_ */

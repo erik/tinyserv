@@ -36,6 +36,12 @@ server_t* init_server(char* directory, int port) {
     return NULL;
   }
 
+  int status = chdir(directory);
+  if(status < 0) {
+    perror("Changing directory failed");
+    return NULL;
+  }
+
   printf("Starting tinyserv on port %d, serving up \"%s\"\n", port, directory);
 
   server_t* serv = malloc(sizeof(server_t));
@@ -142,9 +148,9 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
       }
       
       char html[BUF_SIZE];
-      
+
       snprintf(html, BUF_SIZE,
-               "<a href=/%s/%s>%s</a>\n<br />\n",
+               "<a href=\"/%s/%s\">%s</a>\n<br />\n",
                dir,
                ep->d_name,
                ep->d_name);
@@ -185,10 +191,15 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
   string_del(dir_list);
 }
 
-void handle_request(server_t* serv, int sockfd, char* dir) {
-  printf("client requested \"%s\"\n", dir);
+void handle_request(server_t* serv, int sockfd, char* encdir) {
+  char decbuf[BUF_SIZE];
+  decode_url(encdir, decbuf, BUF_SIZE);
+  printf("client requested \"%s\"\n", decbuf);
+
+  char* dir = decbuf;
+
   if(STREQ(dir, "/")) {
-    list_directory(serv, sockfd, serv->directory);
+    list_directory(serv, sockfd, ".");
   } else {
 
     /* skip over '/' */
@@ -225,7 +236,13 @@ void handle_request(server_t* serv, int sockfd, char* dir) {
       rewind(fp);
 
       char* content = calloc(size, sizeof(char));
-      fread(content, sizeof(char), size, fp);
+      unsigned len = fread(content, sizeof(char), size, fp);
+      if(len != size) {
+        if(ferror(fp)) {
+          printf("IO error on \"%s\"\n", file);
+          bad_request(sockfd);
+        }
+      }
 
       /* size - 1 because we don't want to send the trailing '\0' */ 
       send_client(sockfd, 200, "OK", mime, size - 1, content);
@@ -240,4 +257,38 @@ char* get_mime_type(char* filename) {
   char *buf = NULL;
   buf = "text/plain";
   return buf;  
+}
+
+// TODO: encode more things
+char* encode_url(char* dec, char* buf, int len) {
+  int bufptr = 0;
+  int i;
+
+  for(i = 0; i < len && dec[i]; ++i) {
+    if(dec[i] == ' ') {
+      strcpy(buf + bufptr, "%20");
+      bufptr += 3;
+    } else {
+      buf[bufptr++] = dec[i];
+    }
+  }
+  return buf;
+}
+
+char* decode_url(char* encoded, char* buf, int len) {
+  int bufptr = 0;
+  int i;
+  for(i = 0; i < len - 2 && encoded[i]; ++i) {
+    if(encoded[i] == '%') {
+      char code[] = {encoded[i+1], encoded[i+2], '\0'};      
+      unsigned c;
+      sscanf(code, "%x", &c); 
+
+      buf[bufptr++] = (char)c;
+      i += 2;
+    } else {
+      buf[bufptr++] = encoded[i];
+    }
+  }
+  return buf;
 }
