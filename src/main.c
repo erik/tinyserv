@@ -1,7 +1,9 @@
 #include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <getopt.h>
 
 #include "server.h"
 
@@ -12,12 +14,65 @@ void sig_int_callback(int signal) {
   deinit_server(server);
 }
 
-int main(int argc, char** argv) {
-  signal(SIGINT, sig_int_callback);
+static struct option args[]  = {
+  {"directory", required_argument, 0, 'd'},
+  {"port", required_argument, 0, 'p'},
+  {"help", no_argument, 0, '?'},
+  {0, 0, 0, 0}
+};
 
-  server = init_server(".", 8080);
+static int usage() {
+  printf("tinyserv [options]\n"
+         "  --directory\t-d [directory]\tdirectory to run from\n"
+         "  --port\t-p [port]\tport to run on\n"
+         "  --help\t-?\t\tshow this text\n");
+  return 0;
+}
+
+int main(int argc, char** argv) {
+
+  char* directory = ".";
+  char* port = "8080";
+
+  int option_index = 0;
+
+  while(1) {
+    int c = getopt_long(argc, argv, "d:p:?:", 
+                        args, &option_index);
+    if(c == -1) {
+      break;
+    }
+
+    switch(c) {
+    case 'd':
+      directory = optarg;
+      break;
+    case 'p':
+      port = optarg;
+      break;
+    case '?':
+    default:
+      return usage();
+    }
+  }
+
+  int port_num = atoi(port);
+
+  if(port_num == 0) {
+    printf("Invalid port number, '%s'\n", port);
+    return usage();
+  }
+  
+  /* strip trailing / from directory if it exists */
+  int len = strlen(directory);
+  if(directory[len -1] == '/') {
+    directory[len -1] = '\0';
+  }
+  
+  server = init_server(directory, port_num);
 
   if(server) {
+    signal(SIGINT, sig_int_callback);
     run_server(server);
   } else {
     puts("ERROR: Aborting\n");

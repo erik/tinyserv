@@ -1,8 +1,7 @@
 # tinyserv
 tinyserv is a tiny no-configuration HTTP server that serves up the
-contents of whatever directory it's run from. It currently serves
-content on port 8080, but this will be customizable when I get around
-to handling command line arguments.
+contents of whatever directory is specified (the current directory, by
+default).
 
 tinyserv makes use of my C HTML generator,
 [htmlize](https://github.com/boredomist/htmlize).
@@ -10,6 +9,13 @@ tinyserv makes use of my C HTML generator,
 # building
 There are no dependencies for building besides a C compiler, so run
 `make clang` if you have clang, or `make gcc` if you have gcc.
+
+# running
+Running tinyserv without arguments will have it run on port 8080, and
+serve content from the current working directory. To change the
+directory, use the `--directory [dir]` (`-d [dir]` for short) command
+line switch. Likewise, to change the port tinyserv uses, set the
+`--port [port]` or `-p [port]` command line option.
 
 # license
     Copyright (c) 2011 Erik Price

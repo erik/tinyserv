@@ -36,6 +36,8 @@ server_t* init_server(char* directory, int port) {
     return NULL;
   }
 
+  printf("Starting tinyserv on port %d, serving up \"%s\"\n", port, directory);
+
   server_t* serv = malloc(sizeof(server_t));
   serv->sockfd = sockfd;
   serv->addr = addr;
@@ -142,7 +144,7 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
       char html[BUF_SIZE];
       
       snprintf(html, BUF_SIZE,
-               "\t\t<a href=/%s/%s>%s</a>\n\t\t<br />\n",
+               "<a href=/%s/%s>%s</a>\n<br />\n",
                dir,
                ep->d_name,
                ep->d_name);
