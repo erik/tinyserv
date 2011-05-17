@@ -151,23 +151,40 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
     }
     closedir (dp);
   }
-  else
+  else {
     perror ("Couldn't open the directory");
+    return;
+  }
   
+  string_t* div = html_tag("div",
+                           ATTRIBUTES(CLASS("container")),
+                           CONTENT(dir_list->str),
+                           0);
+
   string_t* html = htmlize(DOCTYPE_HTML5,
                            HEAD(
                                 html_tag("title",
                                          ATTRIBUTES(NULL),
                                          CONTENT("tinyserv listing"),
+                                         0),
+                                html_tag("style",
+                                         ATTRIBUTES("type=\"text/css\""),
+                                         CONTENT(PAGE_CSS),
                                          0)),
-                           BODY(dir_list));
+                           BODY(html_tag("a",
+                                         ATTRIBUTES(CLASS("title"),
+                                                    "href=/"),
+                                         CONTENT("TINYSERV ", dir),
+                                         0),
+                                div));
   send_client(sockfd, 200, "OK", "text/html", html->size, html->str);
   
   string_del(html);
+  string_del(dir_list);
 }
 
 void handle_request(server_t* serv, int sockfd, char* dir) {
-  printf("Client requested \"%s\"\n", dir);
+  printf("client requested \"%s\"\n", dir);
   if(STREQ(dir, "/")) {
     list_directory(serv, sockfd, serv->directory);
   } else {
@@ -195,9 +212,12 @@ void handle_request(server_t* serv, int sockfd, char* dir) {
     } else if(S_ISDIR(buffer.st_mode)) {
       list_directory(serv, sockfd, dir);
     } else {
+
       char* file = dir;
       FILE* fp = fopen(file, "rb");
     
+      char* mime = get_mime_type(file);
+
       fseek(fp, 0, SEEK_END);
       unsigned size = ftell(fp) + 1;
       rewind(fp);
@@ -206,9 +226,16 @@ void handle_request(server_t* serv, int sockfd, char* dir) {
       fread(content, sizeof(char), size, fp);
 
       /* size - 1 because we don't want to send the trailing '\0' */ 
-      send_client(sockfd, 200, "OK", "text/plain; charset=UTF-8", size - 1, content);
+      send_client(sockfd, 200, "OK", mime, size - 1, content);
 
       free(content);
     }
   }
+}
+
+// TODO: write this
+char* get_mime_type(char* filename) {
+  char *buf = NULL;
+  buf = "text/plain";
+  return buf;  
 }

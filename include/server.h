@@ -8,6 +8,13 @@
 #include <netinet/in.h>
 #include <unistd.h>
 
+#define PAGE_CSS \
+  "a.title { color: black; font-size: 24pt; font-family: sans-serif; }\n" \
+  "a { color: white; text-decoration: none;}\n"                     \
+  "a:hover {font-weight: bold;}\n"                                  \
+  ".container {width: 300px; background: #555; padding:10px;"       \
+  "border: 2px solid black; opacity: 0.6; border-radius: 10px;}\n"
+
 #define MAX_CONNECTIONS 10
 #define BUF_SIZE 0x1000
 
@@ -36,5 +43,7 @@ void handle_request(server_t* serv, int sockfd, char* req);
 
 void handle_client(server_t* serv, int sockfd);
 void send_client(int sockfd, int resp_num, char* resp_msg, char* type, int len, char* cont);
+
+char* get_mime_type(char* filename);
 
 #endif /* _SERVER_H_ */
