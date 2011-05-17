@@ -135,6 +135,7 @@ void send_client(int sockfd, int resp_num, char* resp_msg, char* type, int len, 
 }
 
 static void list_directory(server_t* serv, int sockfd, char* dir) {
+  html_auto_free = 1;
   string_t* dir_list = string_new2("");
   
   DIR *dp;
@@ -149,11 +150,26 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
       
       char html[BUF_SIZE];
 
+      int is_dir = 0;
+      {
+        char tmp[BUF_SIZE];
+        strcpy(tmp, dir);
+        strcat(tmp, "/");
+        strcat(tmp, ep->d_name);
+          
+        struct stat buffer;
+        stat(tmp, &buffer);
+        if(S_ISDIR(buffer.st_mode)) {
+          is_dir = 1;
+        }
+      }
+
       snprintf(html, BUF_SIZE,
-               "<a href=\"/%s/%s\">%s</a>\n<br />\n",
+               "<a href=\"/%s/%s\">%s%c</a>\n<br />\n",
                dir,
                ep->d_name,
-               ep->d_name);
+               ep->d_name,
+               is_dir ? '/' : ' ');
       
       dir_list = string_append_str(dir_list, html);
     }
