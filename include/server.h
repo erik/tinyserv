@@ -10,9 +10,9 @@
 
 #define PAGE_CSS \
   "a.title { color: black; font-size: 24pt; font-family: sans-serif; }\n" \
-  "a { color: white; text-decoration: none;}\n"                     \
-  "a:hover {font-weight: bold;}\n"                                  \
-  ".container {width: 300px; background: #555; padding:10px;"       \
+  "a { color: white; line-height: 150%; text-decoration: none;}\n"      \
+  "a:hover {font-weight: bold;}\n"                                      \
+  ".container {min-width: 300px; max-width: 800px; background: #555; overflow: auto; padding:10px;" \
   "border: 2px solid black; opacity: 0.6; border-radius: 10px;}\n"
 
 #define MAX_CONNECTIONS 10
