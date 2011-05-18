@@ -8,6 +8,7 @@
 #include <string.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <time.h>
 
 #define STREQ(s1, s2) (!strcmp(s1, s2))
 
@@ -136,7 +137,9 @@ void send_client(int sockfd, int resp_num, char* resp_msg, char* type, int len, 
 
 static void list_directory(server_t* serv, int sockfd, char* dir) {
   html_auto_free = 1;
-  string_t* dir_list = string_new2("");
+  string_t* dir_links = string_new2("<b>Files </b><br />");
+  string_t* dir_sizes = string_new2("<b>Size</b><br />");
+  string_t* dir_times = string_new2("<b>Modified</b><br />");
   
   DIR *dp;
   struct dirent *ep;     
@@ -147,31 +150,59 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
       if(STREQ(ep->d_name, "..") || STREQ(ep->d_name, ".")) {
         continue;
       }
-      
-      char html[BUF_SIZE];
 
-      int is_dir = 0;
+      struct stat buffer;
       {
         char tmp[BUF_SIZE];
         strcpy(tmp, dir);
         strcat(tmp, "/");
         strcat(tmp, ep->d_name);
-          
-        struct stat buffer;
         stat(tmp, &buffer);
-        if(S_ISDIR(buffer.st_mode)) {
-          is_dir = 1;
-        }
       }
 
-      snprintf(html, BUF_SIZE,
-               "<a href=\"/%s/%s\">%s%c</a>\n<br />\n",
-               dir,
-               ep->d_name,
-               ep->d_name,
-               is_dir ? '/' : ' ');
-      
-      dir_list = string_append_str(dir_list, html);
+      int is_dir = S_ISDIR(buffer.st_mode);
+
+      {
+        char html[BUF_SIZE];
+               
+        snprintf(html, BUF_SIZE,
+                 "<a href=\"/%s/%s\">%s%c</a><br />\n",
+                 dir,
+                 ep->d_name,
+                 ep->d_name,
+                 is_dir ? '/' : ' ');
+        
+        dir_links = string_append_str(dir_links, html);
+      }
+
+      {
+        char html[BUF_SIZE];
+        char *units[] = {
+          "bytes", "KiB", "MiB", "GiB"
+        };
+        unsigned file_size = buffer.st_size;
+        unsigned i;
+        for(i = 0; i < sizeof(units); ++i) {
+          unsigned tmp;
+          tmp = file_size;
+          file_size /= 1024;
+          if(file_size <= 0) {
+            file_size = tmp;
+            break;
+          }
+        }
+        
+        snprintf(html, BUF_SIZE, "%u %s<br />\n", file_size, units[i]);
+        dir_sizes = string_append_str(dir_sizes, is_dir ? "---<br />\n" : html);
+      }
+
+      {
+        char html[BUF_SIZE];
+        time_t mod = buffer.st_mtime;
+        snprintf(html, BUF_SIZE, "%s<br />\n", ctime(&mod));
+        dir_times = string_append_str(dir_times, html);
+      }
+                
     }
     closedir (dp);
   }
@@ -180,16 +211,33 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
     return;
   }
   
+  string_t* links = html_tag("div",
+                             ATTRIBUTES(CLASS("links")),
+                             CONTENT(dir_links->str),
+                             0);
+  string_t* sizes = html_tag("div",
+                             ATTRIBUTES(CLASS("sizes")),
+                             CONTENT(dir_sizes->str),
+                             0);
+  string_t* times = html_tag("div",
+                             ATTRIBUTES(CLASS("times")),
+                             CONTENT(dir_times->str),
+                             0);
+
   string_t* div = html_tag("div",
                            ATTRIBUTES(CLASS("container")),
-                           CONTENT(dir_list->str),
+                           CONTENT(links->str, sizes->str, times->str),
                            0);
+
+  string_del(links);
+  string_del(sizes);
+  string_del(times);
 
   string_t* html = htmlize(DOCTYPE_HTML5,
                            HEAD(
                                 html_tag("title",
                                          ATTRIBUTES(NULL),
-                                         CONTENT("tinyserv listing"),
+                                         CONTENT(dir),
                                          0),
                                 html_tag("style",
                                          ATTRIBUTES("type=\"text/css\""),
@@ -198,13 +246,13 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
                            BODY(html_tag("a",
                                          ATTRIBUTES(CLASS("title"),
                                                     "href=/"),
-                                         CONTENT("TINYSERV ", dir),
+                                         CONTENT(dir),
                                          0),
                                 div));
   send_client(sockfd, 200, "OK", "text/html", html->size, html->str);
   
   string_del(html);
-  string_del(dir_list);
+  string_del(dir_links);
 }
 
 void handle_request(server_t* serv, int sockfd, char* encdir) {

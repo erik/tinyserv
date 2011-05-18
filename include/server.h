@@ -9,11 +9,15 @@
 #include <unistd.h>
 
 #define PAGE_CSS \
-  "a.title { color: black; font-size: 24pt; font-family: sans-serif; }\n" \
-  "a { color: white; line-height: 150%; text-decoration: none;}\n"      \
-  "a:hover {font-weight: bold;}\n"                                      \
-  ".container {min-width: 300px; max-width: 800px; background: #555; overflow: auto; padding:10px;" \
-  "border: 2px solid black; opacity: 0.6; border-radius: 10px;}\n"
+  "a.title { padding-left: 50px; color: black; font-size: 24pt; font-family: sans-serif; }\n" \
+  "a { color: #222; line-height: 150%; text-decoration: none;}\n"       \
+  ".container a:hover {color: #888;}\n"                                 \
+  ".container { line-height: 150%; padding:10px; margin-left: 50px;"    \
+  "padding-left: 25px; overflow:auto; font-family: sans-serif;"         \
+  " border-radius: 10px; overflow:auto;}\n"                             \
+  ".links { float: left; margin: 25px;}\n"                              \
+  ".sizes { float: left; margin: 25px;}\n"                              \
+  ".times { float: left; margin: 25px;}\n"
 
 #define MAX_CONNECTIONS 10
 #define BUF_SIZE 0x1000
