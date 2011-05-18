@@ -4,7 +4,8 @@ CHDR := $(shell find include -name "*.h")
 COBJ := $(CSRC:.c=.o)
 
 CC := clang
-CFLAGS := -Wall -Wextra -pedantic -std=c99 -Iinclude/ -Wno-unused-parameter -O3
+CFLAGS := -Wall -Wextra -pedantic -std=c99 -Iinclude/ -Wno-unused-parameter -O3 \
+-D _BSD_SOURCE
 LNFLAGS := 
 EXE := tinyserv
 

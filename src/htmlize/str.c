@@ -4,7 +4,8 @@
 #include <string.h>
 
 string_t* string_new(char* str, unsigned length) {
-  string_t* string = malloc(sizeof(string_t) + length);
+  string_t* string = malloc(sizeof(string_t));
+  string->str = calloc(length, sizeof(char));
   
   string->allocated = length;
 
@@ -23,6 +24,7 @@ string_t* string_new2(char* str) {
 }
 
 void string_del(string_t* string) {
+  free(string->str);
   free(string);
 }
 
@@ -30,6 +32,7 @@ string_t* string_resize(string_t* string, unsigned size) {
   string_t* new = string_new(string->str, size);
 
   string_del(string);
+  string = NULL;
 
   return new;
 }
@@ -53,7 +56,8 @@ string_t* string_concat_str(string_t* base, char* str) {
   string_t* concat = string_concat(base, cat_str);
 
   string_del(cat_str);
-  
+  cat_str = NULL;
+
   return concat;
 }
 

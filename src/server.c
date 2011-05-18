@@ -114,7 +114,7 @@ void handle_client(server_t* server, int sockfd) {
   close(sockfd);
   
   /* exit child process */
-  exit(0);
+  _exit(0);
 }
 
 void send_client(int sockfd, int resp_num, char* resp_msg, char* type, int len, char* cont) {
@@ -135,82 +135,99 @@ void send_client(int sockfd, int resp_num, char* resp_msg, char* type, int len, 
   send(sockfd, cont, len, 0);
 }
 
+
+static void get_time(char* buf, int size, struct stat st) {
+  struct tm tm_mod;
+  time_t mod = st.st_mtime;
+  localtime_r(&mod, &tm_mod);
+  strftime(buf, size, "%a %b %d %H:%M:%S", &tm_mod);
+}
+
+static char *units[] = {
+  "bytes", "KiB", "MiB", "GiB"
+};
+
 static void list_directory(server_t* serv, int sockfd, char* dir) {
   html_auto_free = 1;
+
   string_t* dir_links = string_new2("<b>Files </b><br />");
   string_t* dir_sizes = string_new2("<b>Size</b><br />");
   string_t* dir_times = string_new2("<b>Modified</b><br />");
-  
-  DIR *dp;
-  struct dirent *ep;     
-  dp = opendir(dir);
-  
-  if(dp != NULL) {
-    while((ep = readdir(dp))) {
-      if(STREQ(ep->d_name, "..") || STREQ(ep->d_name, ".")) {
+
+  int num;
+  int i;
+
+  struct dirent **namelist;
+  num = scandir(dir, &namelist, 0, alphasort);
+
+  if(num >= 0) {
+    for(i = 0; i < num; ++i) {
+      if(STREQ(namelist[i]->d_name, "..") || STREQ(namelist[i]->d_name, ".")) {
         continue;
       }
 
       struct stat buffer;
       {
-        char tmp[BUF_SIZE];
+        char *tmp = malloc(BUF_SIZE);
         strcpy(tmp, dir);
         strcat(tmp, "/");
-        strcat(tmp, ep->d_name);
-        stat(tmp, &buffer);
+        strcat(tmp, namelist[i]->d_name);
+        if(lstat(tmp, &buffer) < 0) {
+          perror("stat");
+          return;
+        }
+        free(tmp);
       }
 
       int is_dir = S_ISDIR(buffer.st_mode);
 
+      char *html = malloc(BUF_SIZE);
       {
-        char html[BUF_SIZE];
-               
+        char t_buf[50];
+        get_time(t_buf, 50, buffer);
+        snprintf(html, BUF_SIZE, "%s<br />\n", t_buf);
+        dir_times = string_append_str(dir_times, html);
+      }
+
+      {
+        memset(html, '\0', BUF_SIZE);               
         snprintf(html, BUF_SIZE,
                  "<a href=\"/%s/%s\">%s%c</a><br />\n",
                  dir,
-                 ep->d_name,
-                 ep->d_name,
+                 namelist[i]->d_name,
+                 namelist[i]->d_name,
                  is_dir ? '/' : ' ');
         
         dir_links = string_append_str(dir_links, html);
       }
 
       {
-        char html[BUF_SIZE];
-        char *units[] = {
-          "bytes", "KiB", "MiB", "GiB"
-        };
+        memset(html, '\0', BUF_SIZE);
         unsigned file_size = buffer.st_size;
         unsigned i;
-        for(i = 0; i < sizeof(units); ++i) {
-          unsigned tmp;
-          tmp = file_size;
-          file_size /= 1024;
-          if(file_size <= 0) {
-            file_size = tmp;
+        for(i = 0; i < 4; ++i) {
+          unsigned tmp = file_size / 1034;
+          if(tmp <= 0) {
             break;
+          } else {
+            file_size = tmp;
           }
         }
-        
+
         snprintf(html, BUF_SIZE, "%u %s<br />\n", file_size, units[i]);
         dir_sizes = string_append_str(dir_sizes, is_dir ? "---<br />\n" : html);
       }
 
-      {
-        char html[BUF_SIZE];
-        time_t mod = buffer.st_mtime;
-        snprintf(html, BUF_SIZE, "%s<br />\n", ctime(&mod));
-        dir_times = string_append_str(dir_times, html);
-      }
-                
+      free(html);
+      free(namelist[i]);         
     }
-    closedir (dp);
+    free(namelist);
   }
   else {
     perror ("Couldn't open the directory");
     return;
   }
-  
+
   string_t* links = html_tag("div",
                              ATTRIBUTES(CLASS("links")),
                              CONTENT(dir_links->str),
@@ -228,6 +245,10 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
                            ATTRIBUTES(CLASS("container")),
                            CONTENT(links->str, sizes->str, times->str),
                            0);
+
+  string_del(dir_links);
+  string_del(dir_sizes);
+  string_del(dir_times);
 
   string_del(links);
   string_del(sizes);
@@ -252,7 +273,6 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
   send_client(sockfd, 200, "OK", "text/html", html->size, html->str);
   
   string_del(html);
-  string_del(dir_links);
 }
 
 void handle_request(server_t* serv, int sockfd, char* encdir) {

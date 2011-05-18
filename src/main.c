@@ -30,7 +30,6 @@ static int usage() {
 }
 
 int main(int argc, char** argv) {
-
   char* directory = ".";
   char* port = "8080";
 
@@ -65,8 +64,8 @@ int main(int argc, char** argv) {
   
   /* strip trailing / from directory if it exists */
   int len = strlen(directory);
-  if(directory[len -1] == '/') {
-    directory[len -1] = '\0';
+  if(directory[len - 1] == '/') {
+    directory[len - 1] = '\0';
   }
   
   server = init_server(directory, port_num);
