@@ -5,7 +5,7 @@
 
 string_t* string_new(char* str, unsigned length) {
   string_t* string = malloc(sizeof(string_t));
-  string->str = calloc(length, sizeof(char));
+  string->str = calloc(length + 1, sizeof(char));
   
   string->allocated = length;
 
