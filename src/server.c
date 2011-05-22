@@ -277,7 +277,7 @@ void handle_request(server_t* serv, int sockfd, char* encdir) {
     /* skip over '/' */
     dir += 1;
 
-    if(strstr(dir, "..") == dir || dir[0] == '\0') {
+    if(strstr(dir, "..") == dir || dir[0] == '/' || dir[0] == '\0') {
       bad_request(sockfd);
       return;
     }
