@@ -148,11 +148,17 @@ static char *units[] = {
 };
 
 static void list_directory(server_t* serv, int sockfd, char* dir) {
-  html_auto_free = 1;
+  HTMLElement links = html_elem_new("div", ELEMENT_AUTO_FREE);
+  html_elem_add_attr(&links, "class=links");
+  html_elem_add_content(&links, "<b>Files </b><br />");
 
-  string_t* dir_links = string_new2("<b>Files </b><br />");
-  string_t* dir_sizes = string_new2("<b>Size</b><br />");
-  string_t* dir_times = string_new2("<b>Modified</b><br />");
+  HTMLElement sizes = html_elem_new("div", ELEMENT_AUTO_FREE);
+  html_elem_add_attr(&sizes, "class=sizes");
+  html_elem_add_content(&sizes, "<b>Size</b><br />");
+
+  HTMLElement times = html_elem_new("div", ELEMENT_AUTO_FREE);
+  html_elem_add_attr(&times, "class=times");
+  html_elem_add_content(&times, "<b>Modified</b><br />");
 
   int num;
   int i;
@@ -186,7 +192,7 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
         char t_buf[50];
         get_time(t_buf, 50, buffer);
         snprintf(html, BUF_SIZE, "%s<br />\n", t_buf);
-        dir_times = string_append_str(dir_times, html);
+        html_elem_add_content(&times, html);
       }
 
       {
@@ -198,7 +204,7 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
                  namelist[i]->d_name,
                  is_dir ? '/' : ' ');
         
-        dir_links = string_append_str(dir_links, html);
+        html_elem_add_content(&links, html);
       }
 
       {
@@ -215,7 +221,7 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
         }
 
         snprintf(html, BUF_SIZE, "%u %s<br />\n", file_size, units[i]);
-        dir_sizes = string_append_str(dir_sizes, is_dir ? "---<br />\n" : html);
+        html_elem_add_content(&sizes, is_dir ? "---<br />\n" : html);
       }
 
       free(html);
@@ -227,52 +233,34 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
     perror ("Couldn't open the directory");
     return;
   }
+   
+  HTMLElement div   = html_elem_new("div", ELEMENT_AUTO_FREE);
+  html_elem_add_attr(&div, "class=container");
+  html_elem_add_elem(&div, links);
+  html_elem_add_elem(&div, sizes);
+  html_elem_add_elem(&div, times);
 
-  string_t* links = html_tag("div",
-                             ATTRIBUTES(CLASS("links")),
-                             CONTENT(dir_links->str),
-                             0);
-  string_t* sizes = html_tag("div",
-                             ATTRIBUTES(CLASS("sizes")),
-                             CONTENT(dir_sizes->str),
-                             0);
-  string_t* times = html_tag("div",
-                             ATTRIBUTES(CLASS("times")),
-                             CONTENT(dir_times->str),
-                             0);
+  HTMLElement css = html_elem_new("style", ELEMENT_AUTO_FREE);
+  html_elem_add_attr(&css, "type=\"text/css\"");
+  html_elem_add_content(&css, PAGE_CSS);
 
-  string_t* div = html_tag("div",
-                           ATTRIBUTES(CLASS("container")),
-                           CONTENT(links->str, sizes->str, times->str),
-                           0);
+  HTMLElement back = html_elem_new("a", ELEMENT_AUTO_FREE);
+  html_elem_add_attr(&back, "class=title href=/");
+  html_elem_add_content(&back, dir);
 
-  string_del(dir_links);
-  string_del(dir_sizes);
-  string_del(dir_times);
+  HTMLDocument doc = html_doc_new(DOC_HTML5);
+  html_doc_set_title(&doc, dir);
+  html_doc_add_head_elem(&doc, css);
+  html_doc_add_body_elem(&doc, back);
+  html_doc_add_body_elem(&doc, div);
 
-  string_del(links);
-  string_del(sizes);
-  string_del(times);
+  unsigned size;
+  char* html = html_doc_create(&doc, &size);
 
-  string_t* html = htmlize(DOCTYPE_HTML5,
-                           HEAD(
-                                html_tag("title",
-                                         ATTRIBUTES(NULL),
-                                         CONTENT(dir),
-                                         0),
-                                html_tag("style",
-                                         ATTRIBUTES("type=\"text/css\""),
-                                         CONTENT(PAGE_CSS),
-                                         0)),
-                           BODY(html_tag("a",
-                                         ATTRIBUTES(CLASS("title"),
-                                                    "href=/"),
-                                         CONTENT(dir),
-                                         0),
-                                div));
-  send_client(sockfd, 200, "OK", "text/html", html->size, html->str);
+  send_client(sockfd, 200, "OK", "text/html", size, html);
   
-  string_del(html);
+  html_doc_destroy(&doc);
+  free(html);
 }
 
 void handle_request(server_t* serv, int sockfd, char* encdir) {

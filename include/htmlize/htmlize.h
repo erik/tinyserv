@@ -3,52 +3,153 @@
 #ifndef _HTML_H_
 #define _HTML_H_
 
-#include "str.h"
+typedef enum doctype { 
+  DOC_HTML4,
+  DOC_HTML5,
+  DOC_XHTML
+} doctype;
 
-extern char html_auto_free;
+typedef enum element_flags {
+  ELEMENT_SELF_CLOSE = 1 << 0,
+  ELEMENT_NULL_TAG   = 1 << 1,
+  ELEMENT_AUTO_FREE  = 1 << 2
+} element_flags;
 
-#define ATTRIBUTES(...) (char*[]){__VA_ARGS__, NULL}
-#define CONTENT(...)    (char*[]){__VA_ARGS__, NULL}
+typedef struct HTMLElement {
+  char* tag;
 
-#define HEAD(...)       (string_t*[]){__VA_ARGS__, NULL}
-#define BODY(...)       (string_t*[]){__VA_ARGS__, NULL}
+  char** attributes;
+  unsigned num_attrs;
 
-#define ID(name) ("id=" #name )
-#define CLASS(name) ("class=" #name)
+  char* content_str;
 
-#define HTML_BREAK "<br />"
+  struct HTMLElement* content;
+  unsigned num_content;
 
-#define DOCTYPE_HTML5 "<!DOCTYPE html>\n<html>"
-#define DOCTYPE_XHTML "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\"" \
-  "\n\t\"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">"          \
-  "\n<html xmlns=\"http://www.w3.org/1999/xhtml\">"
+  element_flags flags;
+} HTMLElement;
 
+typedef struct HTMLDocument {
+  doctype type;
+  
+  unsigned num_head;
+  HTMLElement* head_elems;
+
+  unsigned num_body;
+  HTMLElement* body_elems;
+
+} HTMLDocument;
+
+
+/**************************
+ * HTMLDocument functions *
+ *************************/
 
 /**
- * Converts a series of tags to HTML. First argument is the DOCTYPE of the
- * HTML, second element is a NULL terminated string_t*[] containing all the tags
- * in <head>, and body is a NULL terminated string_t*[] containing all the tags
- * in <body>.
- *
- * If html_auto_free is set to 1, then each of the tags passes to htmlize will
- * automatically be freed, so temporary variables do not need to be used to
- * avoid leaking memory
+ * Creates a new HTMLDocument, with the doctype set 
+ * to doc. Nothing special, just allocates and intializes
+ * everything to sane values.
  */
-string_t* htmlize(char* doctype, string_t* head[], string_t* body[]);
+HTMLDocument html_doc_new(doctype doc);
 
 /**
- * Generates a string representation of an HTML tag, with the given tagname.
- * Attrs is a NULL terminated char*[] containing all the attributes of the
- * tag (id, class, and whatever other attributes are necessary). Content is
- * a NULL terminated char*[] that contains all the content that will be placed
- * inside of the tag. <tag>CONTENT</tag>. Self close determines whether the tag
- * will close itself: <tag />, or not: <tag></tag>
+ * Cleans up memory associated with doc. Note that if
+ * doc is malloc()'d, html_doc_destroy will not free()
+ * it.
  */
-string_t* html_tag(char* tagname, char* attrs[], char* content[], int selfClose);
+void html_doc_destroy(HTMLDocument* doc);
 
 /**
- * Returns an HTML-escaped representation of a given char* of text.
+ * Worthless function to change the doctype of doc
  */
-string_t* html_escape(char* text);
+void html_doc_set_doctype(HTMLDocument* doc, doctype type);
+
+/**
+ * Convenience function to set the title of doc to title.
+ * Note that as this is a naive function, it simply calls
+ * html_doc_add_head_elem, and as such, multiple calls
+ * will create multiple titles
+ */
+void html_doc_set_title(HTMLDocument* doc, char* title);
+
+/**
+ * Appends an HTMLElement to the document, to be generated
+ * in the <head> section
+ */
+void html_doc_add_head_elem(HTMLDocument* doc, HTMLElement elem);
+
+/**
+ * Appends an HTMLElement to the document, to be generated 
+ * in the <body> section
+ */
+void html_doc_add_body_elem(HTMLDocument* doc, HTMLElement elem);
+
+/**
+ * Generates an HTML representation of the document, the 
+ * value of sizeptr set to the length of the generated
+ * string
+ */
+char* html_doc_create(HTMLDocument* doc, unsigned* sizeptr);
+
+
+/*************************
+ * HTMLElement functions *
+ ************************/
+
+/**
+ * Creates a new HTMLElement with everything intialized and 
+ * allocated
+ */
+HTMLElement html_elem_new(char* tag, element_flags flags);
+
+/**
+ * Cleans up memory associated with the element. Note that 
+ * as with html_doc_destroy(), this will not free malloc()'d
+ * memory
+ */
+void html_elem_destroy(HTMLElement* elem);
+
+/**
+ * Adds an attribute to the HTMLElement, such as "href=/.."
+ * or "class=myclass".
+ */
+void html_elem_add_attr(HTMLElement* elem, char* attr);
+
+/**
+ * Adds an embedded element to the HTMLElement.
+ */
+void html_elem_add_elem(HTMLElement* elem, HTMLElement inner);
+
+/**
+ * Convenience function to create an element with the flags
+ * ELMEMENT_AUTO_FREE | ELEMENT_NULL_TAG and adds it to the 
+ * element. Note that since the element is auto-free'd, you 
+ * need to be careful about how the parent HTMLElement will
+ * be freed
+ */
+void html_elem_add_content(HTMLElement* elem, char* content);
+
+/**
+ * You should probably call html_elem_add_content() instead.
+ */
+void html_elem_set_content(HTMLElement* elem, char* content);
+
+/**
+ * Generates the HTML representation of the tag, with the value
+ * of sizeptr set to the length of the string returned
+ */
+char* html_elem_create(HTMLElement* elem, unsigned* sizeptr);
+
+
+/*********************
+ * Utility functions *
+ ********************/
+
+/**
+ * Returns an HTML-escaped representation of a given char* of raw input.
+ * The value of *sizeptr after this function will be the length of the returned
+ * string
+ */
+char* html_escape(char* raw, unsigned* sizeptr);
 
 #endif /* _HTML_H_ */

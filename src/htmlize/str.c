@@ -57,7 +57,7 @@ string_t* string_concat_str(string_t* base, char* str) {
 
   string_del(cat_str);
   cat_str = NULL;
-
+  
   return concat;
 }
 

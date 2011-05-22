@@ -7,7 +7,7 @@
 typedef struct string {
   unsigned size;      /* how long is the string */
   unsigned allocated; /* how much space is allocated */
-  char *str;         /* pointer to string */
+  char *str;          /* pointer to string */
 } string_t;
 
 string_t* string_new(char* str, unsigned len);
