@@ -206,7 +206,7 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
         unsigned file_size = buffer.st_size;
         unsigned i;
         for(i = 0; i < 4; ++i) {
-          unsigned tmp = file_size / 1034;
+          unsigned tmp = file_size / 1024;
           if(tmp <= 0) {
             break;
           } else {
