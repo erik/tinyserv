@@ -148,17 +148,9 @@ static char *units[] = {
 };
 
 static void list_directory(server_t* serv, int sockfd, char* dir) {
-  HTMLElement links = html_elem_new("div", ELEMENT_AUTO_FREE);
-  html_elem_add_attr(&links, "class=links");
-  html_elem_add_content(&links, "<b>Files </b><br />");
-
-  HTMLElement sizes = html_elem_new("div", ELEMENT_AUTO_FREE);
-  html_elem_add_attr(&sizes, "class=sizes");
-  html_elem_add_content(&sizes, "<b>Size</b><br />");
-
-  HTMLElement times = html_elem_new("div", ELEMENT_AUTO_FREE);
-  html_elem_add_attr(&times, "class=times");
-  html_elem_add_content(&times, "<b>Modified</b><br />");
+  HTMLElement table = html_elem_new("table", ELEMENT_AUTO_FREE);
+  html_elem_add_content(&table, "<tr><th class=links>Files</th><th class=sizes>Size</th>" \
+                        "<th class=times>Modified</th></tr>\n");
 
   int num;
   int i;
@@ -171,6 +163,8 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
       if(STREQ(namelist[i]->d_name, "..") || STREQ(namelist[i]->d_name, ".")) {
         continue;
       }
+
+      HTMLElement row = html_elem_new("tr", ELEMENT_AUTO_FREE);
 
       struct stat buffer;
       {
@@ -189,22 +183,17 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
 
       char *html = malloc(BUF_SIZE);
       {
-        char t_buf[50];
-        get_time(t_buf, 50, buffer);
-        snprintf(html, BUF_SIZE, "%s<br />\n", t_buf);
-        html_elem_add_content(&times, html);
-      }
-
-      {
         memset(html, '\0', BUF_SIZE);               
         snprintf(html, BUF_SIZE,
-                 "<a href=\"/%s/%s\">%s%c</a><br />\n",
+                 "<a href=\"/%s/%s\">%s%c</a><br />",
                  dir,
                  namelist[i]->d_name,
                  namelist[i]->d_name,
                  is_dir ? '/' : ' ');
-        
-        html_elem_add_content(&links, html);
+
+        HTMLElement cell = html_elem_new("td", ELEMENT_AUTO_FREE);
+        html_elem_add_content(&cell, html);
+        html_elem_add_elem(&row, cell);
       }
 
       {
@@ -220,9 +209,24 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
           }
         }
 
-        snprintf(html, BUF_SIZE, "%u %s<br />\n", file_size, units[i]);
-        html_elem_add_content(&sizes, is_dir ? "---<br />\n" : html);
+        snprintf(html, BUF_SIZE, "%u %s<br />", file_size, units[i]);
+        
+        HTMLElement cell = html_elem_new("td", ELEMENT_AUTO_FREE);
+        html_elem_add_content(&cell, is_dir ? "---<br />" : html);
+        html_elem_add_elem(&row, cell);
       }
+
+
+      {
+        char t_buf[50];
+        get_time(t_buf, 50, buffer);
+        snprintf(html, BUF_SIZE, "%s<br />", t_buf);
+        HTMLElement cell = html_elem_new("td", ELEMENT_AUTO_FREE);
+        html_elem_add_content(&cell, html);
+        html_elem_add_elem(&row, cell);
+      }
+
+      html_elem_add_elem(&table, row);
 
       free(html);
       free(namelist[i]);         
@@ -236,9 +240,7 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
    
   HTMLElement div   = html_elem_new("div", ELEMENT_AUTO_FREE);
   html_elem_add_attr(&div, "class=container");
-  html_elem_add_elem(&div, links);
-  html_elem_add_elem(&div, sizes);
-  html_elem_add_elem(&div, times);
+  html_elem_add_elem(&div, table);
 
   HTMLElement css = html_elem_new("style", ELEMENT_AUTO_FREE);
   html_elem_add_attr(&css, "type=\"text/css\"");
@@ -277,7 +279,7 @@ void handle_request(server_t* serv, int sockfd, char* encdir) {
     /* skip over '/' */
     dir += 1;
 
-    if(strstr(dir, "..") == dir || dir[0] == '/' || dir[0] == '\0') {
+    if(strstr(dir, "..") || dir[0] == '/' || dir[0] == '\0') {
       bad_request(sockfd);
       return;
     }

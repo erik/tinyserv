@@ -15,9 +15,8 @@
   ".container { line-height: 150%; padding:10px; margin-left: 50px;"    \
   "padding-left: 25px; overflow:auto; font-family: sans-serif;"         \
   " border-radius: 10px; overflow:auto;}\n"                             \
-  ".links { float: left; margin: 25px;}\n"                              \
-  ".sizes { float: left; margin: 25px;}\n"                              \
-  ".times { float: left; margin: 25px;}\n"
+  "td { padding-right: 25px;}\n"                                        \
+  "th { text-align:left; }\n"
 
 #define MAX_CONNECTIONS 10
 #define BUF_SIZE 0x1000
