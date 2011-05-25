@@ -168,7 +168,7 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
 
       struct stat buffer;
       {
-        char *tmp = malloc(BUF_SIZE);
+        char tmp[BUF_SIZE];
         strcpy(tmp, dir);
         strcat(tmp, "/");
         strcat(tmp, namelist[i]->d_name);
@@ -176,12 +176,11 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
           perror("stat");
           return;
         }
-        free(tmp);
       }
 
       int is_dir = S_ISDIR(buffer.st_mode);
 
-      char *html = malloc(BUF_SIZE);
+      char html[BUF_SIZE];
       {
         memset(html, '\0', BUF_SIZE);               
         snprintf(html, BUF_SIZE,
@@ -228,7 +227,6 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
 
       html_elem_add_elem(&table, row);
 
-      free(html);
       free(namelist[i]);         
     }
     free(namelist);
@@ -266,7 +264,8 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
 }
 
 void handle_request(server_t* serv, int sockfd, char* encdir) {
-  char decbuf[BUF_SIZE];
+  // to shut valgrind up
+  char *decbuf = calloc(BUF_SIZE, sizeof(char));
   decode_url(encdir, decbuf, BUF_SIZE);
   printf("client requested \"%s\"\n", decbuf);
 
@@ -322,8 +321,10 @@ void handle_request(server_t* serv, int sockfd, char* encdir) {
       send_client(sockfd, 200, "OK", mime, size - 1, content);
 
       free(content);
+      fclose(fp);
     }
   }
+  free(decbuf);
 }
 
 // TODO: write this

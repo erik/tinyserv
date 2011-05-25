@@ -44,7 +44,7 @@ void html_doc_add_body_elem(HTMLDocument* doc, HTMLElement elem)  {
 }
 
 char* html_doc_create(HTMLDocument* doc, unsigned* sizeptr) {
-  string_t* string = string_new2("");
+  string_t* string = string_new(NULL, 2000);
 
   switch(doc->type) {
   case DOC_HTML4:
@@ -95,13 +95,10 @@ char* html_doc_create(HTMLDocument* doc, unsigned* sizeptr) {
 
   string = string_append_str(string, "</html>");
 
-  char* strptr = malloc(string->size + 1);
-  strcpy(strptr, string->str);
-  
+  char* strptr = string->str;
   *sizeptr = string->size;
-  
-  string_del(string);
-  
+  free(string);
+    
   return strptr;
 }
 
@@ -164,7 +161,7 @@ void html_elem_set_content(HTMLElement* elem, char* content) {
 }
 
 char* html_elem_create(HTMLElement* elem, unsigned* sizeptr) {
-  string_t* string = string_new2("");
+  string_t* string = string_new(NULL, 100 * elem->num_content);
 
   if(!(elem->flags & ELEMENT_NULL_TAG)) {
     string = string_append_str(string, "<");
@@ -207,12 +204,9 @@ char* html_elem_create(HTMLElement* elem, unsigned* sizeptr) {
     }
   }
 
-  char* strptr = malloc(string->size + 1);
-  strcpy(strptr, string->str);
-  
+  char* strptr = string->str;
   *sizeptr = string->size;
-  
-  string_del(string);
+  free(string);
   
   if(elem->flags & ELEMENT_AUTO_FREE) {
     html_elem_destroy(elem);
@@ -223,7 +217,7 @@ char* html_elem_create(HTMLElement* elem, unsigned* sizeptr) {
 
 
 char* html_escape(char* text, unsigned* sizeptr) {
-  string_t* string = string_new2("");
+  string_t* string = string_new(NULL, strlen(text));
 
   unsigned i = 0;
   char c;
@@ -249,12 +243,9 @@ char* html_escape(char* text, unsigned* sizeptr) {
     }
   }
 
-  char* strptr = malloc(string->size + 1);
-  strcpy(strptr, string->str);
-  
+  char* strptr = string->str;
   *sizeptr = string->size;
-  
-  string_del(string);
+  free(string);
 
   return strptr;
 }
