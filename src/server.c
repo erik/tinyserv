@@ -27,6 +27,9 @@ server_t* init_server(char* directory, int port) {
   addr.sin_addr.s_addr = INADDR_ANY;
   addr.sin_port = htons(port);
 
+  int optval = 1;
+  setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof optval);
+
   if(bind(sockfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
     perror("Socket binding failed");
     return NULL;
