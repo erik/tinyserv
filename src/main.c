@@ -17,6 +17,7 @@ void sig_int_callback(int signal) {
 static struct option args[]  = {
   {"directory", required_argument, 0, 'd'},
   {"port", required_argument, 0, 'p'},
+  {"ignore-dot", no_argument, 0, 'i'},
   {"help", no_argument, 0, '?'},
   {0, 0, 0, 0}
 };
@@ -25,6 +26,7 @@ static int usage() {
   printf("tinyserv [options]\n"
          "  --directory\t-d [directory]\tdirectory to run from\n"
          "  --port\t-p [port]\tport to run on\n"
+         "  --ignore-dot\t-i\tignore dot (hidden) files\n"
          "  --help\t-?\t\tshow this text\n");
   return 0;
 }
@@ -34,9 +36,10 @@ int main(int argc, char** argv) {
   char* port = "8080";
 
   int option_index = 0;
+  int ign_dot = 0;
 
   while(1) {
-    int c = getopt_long(argc, argv, "d:p:?:", 
+    int c = getopt_long(argc, argv, "d:p:i?:", 
                         args, &option_index);
     if(c == -1) {
       break;
@@ -48,6 +51,9 @@ int main(int argc, char** argv) {
       break;
     case 'p':
       port = optarg;
+      break;
+    case 'i':
+      ign_dot = 1;
       break;
     case '?':
     default:
@@ -68,7 +74,7 @@ int main(int argc, char** argv) {
     directory[len - 1] = '\0';
   }
   
-  server = init_server(directory, port_num);
+  server = init_server(directory, port_num, ign_dot);
 
   if(server) {
     signal(SIGINT, sig_int_callback);

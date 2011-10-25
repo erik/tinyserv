@@ -36,10 +36,12 @@ typedef struct server {
 
   struct sockaddr_in addr;
 
+  int ign_dot;
+
   char* directory;
 } server_t;
 
-server_t* init_server(char* directory, int port);
+server_t* init_server(char* directory, int port, int ign_dot);
 void deinit_server(server_t* serv);
 
 int run_server(server_t* serv);

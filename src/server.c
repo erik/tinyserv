@@ -12,7 +12,7 @@
 
 #define STREQ(s1, s2) (!strcmp(s1, s2))
 
-server_t* init_server(char* directory, int port) {
+server_t* init_server(char* directory, int port, int ign_dot) {
   int sockfd;
   struct sockaddr_in addr;
 
@@ -53,6 +53,7 @@ server_t* init_server(char* directory, int port) {
   serv->addr = addr;
   serv->port = port;
   serv->directory = directory;
+  serv->ign_dot = ign_dot;
 
   return serv;
 }
@@ -202,6 +203,10 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
       if(STREQ(namelist[i]->d_name, "..") || STREQ(namelist[i]->d_name, ".")) {
         continue;
       }
+      
+      if(serv->ign_dot && namelist[i]->d_name[0] == '.') {
+        continue;
+      }
 
       HTMLElement row = html_elem_new("tr", ELEMENT_AUTO_FREE);
 
@@ -334,10 +339,13 @@ void handle_request(server_t* serv, int sockfd, char* encdir) {
       send_client(sockfd, 404, "Not Found", "text/html", str->size, s);
       
       string_del(str);
+    } else if(serv->ign_dot && dir[0] == '.') {
+      bad_request(sockfd);
     } else if(S_ISDIR(buffer.st_mode)) {
       list_directory(serv, sockfd, dir);
+    
     } else {
-
+      
       char* file = dir;
       FILE* fp = fopen(file, "rb");
 
