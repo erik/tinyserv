@@ -21,6 +21,8 @@
 #define MAX_CONNECTIONS 10
 #define BUF_SIZE 0x1000
 
+#define CHUNK_SIZE 512
+
 #define SERVER_FIELD "Server: tinyserv " __DATE__ "\n"
 
 #define BAD_REQUEST_MSG "<!doctype html><html><body><h1>BAD REQUEST</h1></body></html>"

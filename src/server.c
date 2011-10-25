@@ -120,6 +120,42 @@ void handle_client(server_t* server, int sockfd) {
   _exit(0);
 }
 
+void send_file_chunked(int sockfd, char* type, FILE* fp) {
+  char msg[BUF_SIZE];
+
+  snprintf(msg, BUF_SIZE, 
+           "HTTP/1.1 200 OK\n"                   \
+           "Content-type: %s\n"                  \
+           "Connection: close\r\n"               \
+           "Transfer-Encoding: chunked\r\n"      \
+           "%s\n\n",
+           type,
+           SERVER_FIELD);
+
+  send(sockfd, msg, strlen(msg) - 1, 0);
+
+  char chunk[CHUNK_SIZE];
+
+  for(;;) {
+    char chunk_sz[10];
+
+    unsigned len = fread(chunk, sizeof(char), CHUNK_SIZE, fp);
+
+    snprintf(chunk_sz, 10, "%X\r\n", len);
+    
+    send(sockfd, chunk_sz, strlen(chunk_sz), 0);
+    send(sockfd, chunk, len, 0);
+    send(sockfd, "\r\n", 2, 0);
+
+    if(len != CHUNK_SIZE) {
+      break;
+    }
+  }
+
+  send(sockfd, "0\r\n\r\n", 5, 0);
+
+}
+
 void send_client(int sockfd, int resp_num, char* resp_msg, char* type, int len, char* cont) {
   char msg[BUF_SIZE];
 
@@ -304,26 +340,16 @@ void handle_request(server_t* serv, int sockfd, char* encdir) {
 
       char* file = dir;
       FILE* fp = fopen(file, "rb");
-    
+
+      if(ferror(fp)) {
+        printf("IO error on \"%s\"\n", file);
+        bad_request(sockfd);
+      }    
+
       char* mime = get_mime_type(file);
 
-      fseek(fp, 0, SEEK_END);
-      unsigned size = ftell(fp) + 1;
-      rewind(fp);
+      send_file_chunked(sockfd, mime, fp);
 
-      char* content = calloc(size, sizeof(char));
-      unsigned len = fread(content, sizeof(char), size, fp);
-      if(len != size) {
-        if(ferror(fp)) {
-          printf("IO error on \"%s\"\n", file);
-          bad_request(sockfd);
-        }
-      }
-
-      /* size - 1 because we don't want to send the trailing '\0' */ 
-      send_client(sockfd, 200, "OK", mime, size - 1, content);
-
-      free(content);
       fclose(fp);
     }
   }
