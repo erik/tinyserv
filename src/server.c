@@ -356,11 +356,45 @@ void handle_request(server_t* serv, int sockfd, char* encdir) {
   free(decbuf);
 }
 
-// TODO: write this
 char* get_mime_type(char* filename) {
   char *buf = NULL;
-  buf = "text/plain";
+
+#define IS(mime) (!strcasecmp(ext, mime))
+
+  char *ext = strrchr(filename, '.');
+
+  if(ext == NULL) {
+    buf = "text/plain";
+  }
+  // Images
+  else if(IS(".png")) {
+    buf = "image/png";
+  } else if(IS(".gif")) {
+    buf = "image/gif";
+  } else if(IS("jpg") || IS("jepg")) {
+    buf = "image/jpeg";
+  } else if(IS(".svg")) {
+    buf = "image/svg+xml";
+  }
+
+  // audio
+  else if(IS(".mp4")) {
+    buf = "audio/mp4";
+  } else if(IS(".mp3")) {
+    buf = "audio/mpeg";    
+  } else if(IS(".ogg")) {
+    buf = "audio/ogg";
+  } else if(IS(".wav")) {
+    buf = "audio/vnd.wav";
+  }
+
+  else {
+    buf = "text/plain";
+  }
+
   return buf;  
+
+#undef IS
 }
 
 // TODO: encode more things
