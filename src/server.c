@@ -17,7 +17,7 @@ server_t* init_server(char* directory, int port, int ign_dot) {
   struct sockaddr_in addr;
 
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  
+
   if(sockfd == 0) {
     perror("Socket creation failed");
     return NULL;
@@ -84,7 +84,7 @@ int run_server(server_t* server) {
 
 void handle_client(server_t* server, int sockfd) {
   char buffer[BUF_SIZE];
-  
+
   int size = recv(sockfd, buffer, BUF_SIZE, 0);
 
   if(size > 0) {
@@ -105,7 +105,7 @@ void handle_client(server_t* server, int sockfd) {
       }
 
       ptr = strtok(NULL, "\r\n");
-    }    
+    }
 
     if(host == NULL || get == NULL) {
       puts("Bad request");
@@ -116,7 +116,7 @@ void handle_client(server_t* server, int sockfd) {
   }
 
   close(sockfd);
-  
+
   /* exit child process */
   _exit(0);
 }
@@ -124,7 +124,7 @@ void handle_client(server_t* server, int sockfd) {
 void send_file_chunked(int sockfd, char* type, FILE* fp) {
   char msg[BUF_SIZE];
 
-  snprintf(msg, BUF_SIZE, 
+  snprintf(msg, BUF_SIZE,
            "HTTP/1.1 200 OK\n"                   \
            "Content-type: %s\n"                  \
            "Connection: close\r\n"               \
@@ -143,7 +143,7 @@ void send_file_chunked(int sockfd, char* type, FILE* fp) {
     unsigned len = fread(chunk, sizeof(char), CHUNK_SIZE, fp);
 
     snprintf(chunk_sz, 10, "%X\r\n", len);
-    
+
     send(sockfd, chunk_sz, strlen(chunk_sz), 0);
     send(sockfd, chunk, len, 0);
     send(sockfd, "\r\n", 2, 0);
@@ -160,7 +160,7 @@ void send_file_chunked(int sockfd, char* type, FILE* fp) {
 void send_client(int sockfd, int resp_num, char* resp_msg, char* type, int len, char* cont) {
   char msg[BUF_SIZE];
 
-  snprintf(msg, BUF_SIZE, 
+  snprintf(msg, BUF_SIZE,
            "HTTP/1.1 %d %s\n"                   \
            "Connection: close\n"                \
            "Content-type: %s\n"                 \
@@ -203,7 +203,7 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
       if(STREQ(namelist[i]->d_name, "..") || STREQ(namelist[i]->d_name, ".")) {
         continue;
       }
-      
+
       if(serv->ign_dot && namelist[i]->d_name[0] == '.') {
         continue;
       }
@@ -226,7 +226,7 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
 
       char html[BUF_SIZE];
       {
-        memset(html, '\0', BUF_SIZE);               
+        memset(html, '\0', BUF_SIZE);
         snprintf(html, BUF_SIZE,
                  "<a href=\"/%s/%s\">%s%c</a><br />",
                  dir,
@@ -253,7 +253,7 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
         }
 
         snprintf(html, BUF_SIZE, "%u %s<br />", file_size, units[i]);
-        
+
         HTMLElement cell = html_elem_new("td", ELEMENT_AUTO_FREE);
         html_elem_add_content(&cell, is_dir ? "---<br />" : html);
         html_elem_add_elem(&row, cell);
@@ -271,7 +271,7 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
 
       html_elem_add_elem(&table, row);
 
-      free(namelist[i]);         
+      free(namelist[i]);
     }
     free(namelist);
   }
@@ -279,7 +279,7 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
     perror ("Couldn't open the directory");
     return;
   }
-   
+
   HTMLElement div   = html_elem_new("div", ELEMENT_AUTO_FREE);
   html_elem_add_attr(&div, "class=container");
   html_elem_add_elem(&div, table);
@@ -302,7 +302,7 @@ static void list_directory(server_t* serv, int sockfd, char* dir) {
   char* html = html_doc_create(&doc, &size);
 
   send_client(sockfd, 200, "OK", "text/html", size, html);
-  
+
   html_doc_destroy(&doc);
   free(html);
 }
@@ -334,25 +334,25 @@ void handle_request(server_t* serv, int sockfd, char* encdir) {
     if(status < 0) {
       string_t* str = string_new2("Not found: ");
       str = string_append_str(str, dir);
-      
+
       char* s = str->str;
       send_client(sockfd, 404, "Not Found", "text/html", str->size, s);
-      
+
       string_del(str);
     } else if(serv->ign_dot && dir[0] == '.') {
       bad_request(sockfd);
     } else if(S_ISDIR(buffer.st_mode)) {
       list_directory(serv, sockfd, dir);
-    
+
     } else {
-      
+
       char* file = dir;
       FILE* fp = fopen(file, "rb");
 
       if(ferror(fp)) {
         printf("IO error on \"%s\"\n", file);
         bad_request(sockfd);
-      }    
+      }
 
       char* mime = get_mime_type(file);
 
@@ -389,18 +389,27 @@ char* get_mime_type(char* filename) {
   else if(IS(".mp4")) {
     buf = "audio/mp4";
   } else if(IS(".mp3")) {
-    buf = "audio/mpeg";    
+    buf = "audio/mpeg";
   } else if(IS(".ogg")) {
     buf = "audio/ogg";
   } else if(IS(".wav")) {
     buf = "audio/vnd.wav";
   }
 
+  // text
+  else if(IS(".html") || IS(".htm")) {
+    buf = "text/html";
+  } else if(IS(".css")) {
+    buf = "text/css";
+  } else if(IS(".js")) {
+    buf = "text/javascript";
+  }
+
   else {
     buf = "text/plain";
   }
 
-  return buf;  
+  return buf;
 
 #undef IS
 }
@@ -426,9 +435,9 @@ char* decode_url(char* encoded, char* buf, int len) {
   int i;
   for(i = 0; i < len - 2 && encoded[i]; ++i) {
     if(encoded[i] == '%') {
-      char code[] = {encoded[i+1], encoded[i+2], '\0'};      
+      char code[] = {encoded[i+1], encoded[i+2], '\0'};
       unsigned c;
-      sscanf(code, "%x", &c); 
+      sscanf(code, "%x", &c);
 
       buf[bufptr++] = (char)c;
       i += 2;
