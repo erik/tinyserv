@@ -379,7 +379,7 @@ char* get_mime_type(char* filename) {
     buf = "image/png";
   } else if(IS(".gif")) {
     buf = "image/gif";
-  } else if(IS("jpg") || IS("jepg")) {
+  } else if(IS(".jpg") || IS(".jpeg")) {
     buf = "image/jpeg";
   } else if(IS(".svg")) {
     buf = "image/svg+xml";
